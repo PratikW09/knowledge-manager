@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Manager</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #e8e6e0;
+      min-height: 100vh;
+    }
+
+    /* --- layout --- */
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: 220px;
+      height: 100vh;
+      background: #161616;
+      border-right: 1px solid #2a2a2a;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .sidebar-brand {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    .sidebar-brand h1 { font-size: 15px; font-weight: 500; color: #e8e6e0; }
+    .sidebar-brand p  { font-size: 12px; color: #555; margin-top: 2px; }
+
+    .nav-item {
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #888;
+      border-radius: 7px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      text-align: left;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-item:hover  { background: #1f1f1f; color: #ccc; }
+    .nav-item.active { background: #1f1f1f; color: #e8e6e0; font-weight: 500; }
+    .nav-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .main {
+      margin-left: 220px;
+      padding: 32px 40px;
+      min-height: 100vh;
+    }
+
+    /* --- top bar --- */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .topbar input {
+      flex: 1;
+      padding: 11px 16px;
+      font-size: 14px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 9px;
+      color: #e8e6e0;
+      outline: none;
+    }
+    .topbar input::placeholder { color: #444; }
+    .topbar input:focus { border-color: #7F77DD; }
+    .topbar button {
+      padding: 11px 22px;
+      font-size: 13px;
+      font-weight: 500;
+      background: #7F77DD;
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .topbar button:hover    { background: #6e66cc; }
+    .topbar button:disabled { background: #3a3660; color: #666; cursor: not-allowed; }
+
+    .save-status {
+      font-size: 12px;
+      min-height: 16px;
+      margin-top: -20px;
+      margin-bottom: 20px;
+      color: #555;
+    }
+    .save-status.success { color: #1D9E75; }
+    .save-status.error   { color: #E24B4A; }
+
+    /* --- stats --- */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    .stat {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .stat-label { font-size: 12px; color: #555; margin-bottom: 6px; }
+    .stat-val   { font-size: 28px; font-weight: 500; color: #e8e6e0; }
+
+    /* --- panels --- */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #e8e6e0;
+      margin-bottom: 16px;
+    }
+
+    /* --- topic cards --- */
+    .topic-card {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      transition: border-color 0.15s;
+    }
+    .topic-card:hover { border-color: #3a3a3a; }
+
+    .topic-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .topic-name { font-size: 15px; font-weight: 500; color: #e8e6e0; }
+
+    .level-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; }
+    .beginner     { background: #0a2e22; color: #5DCAA5; }
+    .intermediate { background: #1e1a40; color: #AFA9EC; }
+    .advanced     { background: #2d1f08; color: #EF9F27; }
+
+    .progress-bar {
+      height: 3px;
+      background: #252525;
+      border-radius: 2px;
+      margin-bottom: 10px;
+    }
+    .progress-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+    .fill-beginner     { background: #1D9E75; width: 25%; }
+    .fill-intermediate { background: #7F77DD; width: 55%; }
+    .fill-advanced     { background: #BA7517; width: 85%; }
+
+    .topic-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #555;
+    }
+
+    /* --- next steps --- */
+    .next-card {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .next-arrow {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #1e1a40;
+      color: #AFA9EC;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .next-topic { font-size: 13px; font-weight: 500; color: #e8e6e0; margin-bottom: 4px; }
+    .next-desc  { font-size: 13px; color: #666; line-height: 1.5; }
+
+    /* --- journey --- */
+    .journey-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+    .dot-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .j-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .j-line { width: 1px; flex: 1; background: #2a2a2a; min-height: 24px; }
+    .j-dot.beginner     { background: #1D9E75; }
+    .j-dot.intermediate { background: #7F77DD; }
+    .j-dot.advanced     { background: #BA7517; }
+    .j-date  { font-size: 11px; color: #444; margin-bottom: 3px; }
+    .j-title { font-size: 13px; font-weight: 500; color: #e8e6e0; margin-bottom: 2px; }
+    .j-sub   { font-size: 12px; color: #555; }
+    .levelup {
+      font-size: 10px;
+      background: #1e1a40;
+      color: #AFA9EC;
+      padding: 1px 7px;
+      border-radius: 20px;
+      margin-left: 6px;
+    }
+
+    /* --- gaps --- */
+    .gap-card {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+    }
+    .gap-topic {
+      font-size: 14px;
+      font-weight: 500;
+      color: #e8e6e0;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #222;
+    }
+    .gap-item {
+      display: flex;
+      gap: 10px;
+      font-size: 13px;
+      color: #777;
+      margin-bottom: 7px;
+      align-items: flex-start;
+      line-height: 1.5;
+    }
+    .covered { color: #1D9E75; flex-shrink: 0; }
+    .missing { color: #E24B4A; flex-shrink: 0; }
+
+    .empty {
+      text-align: center;
+      padding: 60px 0;
+      font-size: 14px;
+      color: #444;
+    }
+
+    /* --- scrollbar --- */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f0f0f; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+
+    .cat-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    border: 1px solid #2a2a2a;
+    border-radius: 20px;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+  }
+  .cat-btn.selected {
+    background: #7F77DD;
+    color: #fff;
+    border-color: #7F77DD;
+  }
+  </style>
+</head>
+<body>
+
+<!-- sidebar navigation -->
+<div class="sidebar">
+  <div class="sidebar-brand">
+    <h1>Knowledge Manager</h1>
+    <p>Personal learning tracker</p>
+  </div>
+  <button class="nav-item active" onclick="showTab('overview', this)">
+    <span class="nav-dot" style="background:#7F77DD"></span> Overview
+  </button>
+  <button class="nav-item" onclick="showTab('nextsteps', this)">
+    <span class="nav-dot" style="background:#1D9E75"></span> Next Steps
+  </button>
+  <button class="nav-item" onclick="showTab('journey', this)">
+    <span class="nav-dot" style="background:#BA7517"></span> Journey
+  </button>
+  <button class="nav-item" onclick="showTab('gaps', this)">
+    <span class="nav-dot" style="background:#E24B4A"></span> Gaps
+  </button>
+</div>
+
+<!-- main content -->
+<div class="main">
+
+<!-- url input -->
+<div class="topbar">
+  <input type="text" id="url-input"
+         placeholder="Paste article URL and press Enter..."
+         onkeydown="if(event.key==='Enter') detectArticle()" />
+  <button id="save-btn" onclick="detectArticle()">Detect Article</button>
+</div>
+<div class="save-status" id="save-status"></div>
+
+<!-- category confirmation — hidden until detection runs -->
+<div id="category-bar"
+     style="display:none; background:#161616; border:1px solid #2a2a2a;
+            border-radius:10px; padding:14px 16px; margin-bottom:20px;">
+
+  <div style="font-size:12px;color:#888;margin-bottom:10px;">
+    Detected category — confirm or change:
+  </div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+    <button onclick="selectCategory('Tech')"
+            class="cat-btn" id="cat-Tech">Tech</button>
+    <button onclick="selectCategory('Finance')"
+            class="cat-btn" id="cat-Finance">Finance</button>
+    <button onclick="selectCategory('Career')"
+            class="cat-btn" id="cat-Career">Career</button>
+    <button onclick="selectCategory('Personal')"
+            class="cat-btn" id="cat-Personal">Personal</button>
+    <button onclick="selectCategory('Other')"
+            class="cat-btn" id="cat-Other">Other</button>
+  </div>
+
+  <button onclick="confirmSave()"
+          style="padding:9px 20px;background:#7F77DD;color:#fff;
+                 border:none;border-radius:8px;cursor:pointer;
+                 font-size:13px;font-weight:500;">
+    Confirm and Save
+  </button>
+</div>
+
+  <!-- stats -->
+  <div class="stats-row">
+    <div class="stat">
+      <div class="stat-label">Topics studied</div>
+      <div class="stat-val" id="stat-topics">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Articles read</div>
+      <div class="stat-val" id="stat-articles">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Concepts learned</div>
+      <div class="stat-val" id="stat-concepts">—</div>
+    </div>
+  </div>
+
+  <!-- panels -->
+  <div id="overview"  class="panel active"><div class="panel-title">All topics</div></div>
+  <div id="nextsteps" class="panel"><div class="panel-title">What to study next</div></div>
+  <div id="journey"   class="panel"><div class="panel-title">Your reading history</div></div>
+  <div id="gaps"      class="panel"><div class="panel-title">Knowledge gaps</div></div>
+
+</div>
+<!-- floating chat button -->
+<div id="chat-bubble"
+     onclick="toggleChat()"
+     style="position:fixed;bottom:28px;right:28px;width:48px;height:48px;
+            background:#7F77DD;border-radius:50%;display:flex;
+            align-items:center;justify-content:center;cursor:pointer;
+            font-size:20px;z-index:100;">
+  💬
+</div>
+
+<!-- chat panel -->
+<div id="chat-panel"
+     style="display:none;position:fixed;bottom:90px;right:28px;
+            width:380px;height:520px;background:#161616;
+            border:1px solid #2a2a2a;border-radius:16px;
+            flex-direction:column;z-index:100;overflow:hidden;">
+
+  <div style="padding:14px 16px;border-bottom:1px solid #2a2a2a;
+              font-size:14px;font-weight:500;color:#e8e6e0;">
+    Ask your AI tutor
+  </div>
+
+  <div id="chat-messages"
+       style="flex:1;overflow-y:auto;padding:14px 16px;
+              display:flex;flex-direction:column;gap:10px;">
+    <div style="font-size:13px;color:#555;text-align:center;margin-top:20px;">
+      Ask anything — I know what you've already learned.
+    </div>
+  </div>
+
+  <div style="padding:12px;border-top:1px solid #2a2a2a;display:flex;gap:8px;">
+    <input id="chat-input"
+           type="text"
+           placeholder="Ask a question..."
+           style="flex:1;padding:9px 12px;font-size:13px;
+                  background:#1a1a1a;border:1px solid #2a2a2a;
+                  border-radius:8px;color:#e8e6e0;outline:none;"
+           onkeydown="if(event.key==='Enter') sendChat()" />
+    <button onclick="sendChat()"
+            style="padding:9px 14px;background:#7F77DD;color:#fff;
+                   border:none;border-radius:8px;cursor:pointer;
+                   font-size:13px;">
+      Send
+    </button>
+  </div>
+</div>
+
+<script>
+  let chatHistory  = [];
+  let chatOpen     = false;
+
+  function toggleChat() {
+    chatOpen = !chatOpen;
+    document.getElementById("chat-panel").style.display = chatOpen ? "flex" : "none";
+    if (chatOpen) document.getElementById("chat-input").focus();
+  }
+
+  function appendMessage(role, text) {
+    const el      = document.getElementById("chat-messages");
+    const isUser  = role === "user";
+    const div     = document.createElement("div");
+    div.style.cssText = `
+      max-width: 85%;
+      align-self: ${isUser ? "flex-end" : "flex-start"};
+      background: ${isUser ? "#7F77DD" : "#1f1f1f"};
+      color: ${isUser ? "#fff" : "#e8e6e0"};
+      padding: 9px 13px;
+      border-radius: ${isUser ? "12px 12px 3px 12px" : "12px 12px 12px 3px"};
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    `;
+    div.textContent = text;
+    el.appendChild(div);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  async function sendChat() {
+    const input = document.getElementById("chat-input");
+    const question = input.value.trim();
+    if (!question) return;
+
+    input.value = "";
+    appendMessage("user", question);
+
+    const thinking = document.createElement("div");
+    thinking.id = "thinking";
+    thinking.style.cssText = "font-size:12px;color:#555;align-self:flex-start;padding:4px 0;";
+    thinking.textContent = "thinking...";
+    document.getElementById("chat-messages").appendChild(thinking);
+
+    chatHistory.push({ role: "user", content: question });
+
+    try {
+      const res  = await fetch("http://localhost:8000/chat", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ question, history: chatHistory.slice(-10) })
+      });
+      const data = await res.json();
+
+      document.getElementById("thinking")?.remove();
+      appendMessage("assistant", data.answer);
+      chatHistory.push({ role: "assistant", content: data.answer });
+
+    } catch (err) {
+      document.getElementById("thinking")?.remove();
+      appendMessage("assistant", "Could not reach the server. Is it running?");
+    }
+  }
+</script>
+<script>
+  const API = "http://localhost:8000";
+
+  function showTab(name, el) {
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".nav-item").forEach(t => t.classList.remove("active"));
+    document.getElementById(name).classList.add("active");
+    el.classList.add("active");
+  }
+
+  let detectedUrl      = "";
+  let selectedCategory = "";
+
+  async function detectArticle() {
+    const url    = document.getElementById("url-input").value.trim();
+    const btn    = document.getElementById("save-btn");
+    const status = document.getElementById("save-status");
+
+    if (!url) {
+      status.className   = "save-status error";
+      status.textContent = "Please paste a URL first.";
+      return;
+    }
+
+    btn.disabled       = true;
+    btn.textContent    = "Detecting...";
+    status.className   = "save-status";
+    status.textContent = "Fetching article and detecting category...";
+    document.getElementById("category-bar").style.display = "none";
+
+    try {
+      const res  = await fetch(`${API}/detect`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ url })
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.detail || "Could not fetch article.");
+
+      detectedUrl = url;
+      selectCategory(data.detected_category);
+      document.getElementById("category-bar").style.display = "block";
+      status.className   = "save-status";
+      status.textContent = `Detected as "${data.detected_category}" — confirm or change below.`;
+
+    } catch (err) {
+      status.className   = "save-status error";
+      status.textContent = err.message;
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = "Detect Article";
+    }
+  }
+
+  function selectCategory(cat) {
+    selectedCategory = cat;
+    document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("selected"));
+    const btn = document.getElementById("cat-" + cat);
+    if (btn) btn.classList.add("selected");
+  }
+
+  async function confirmSave() {
+    if (!detectedUrl || !selectedCategory) {
+      document.getElementById("save-status").textContent = "No article detected yet.";
+      return;
+    }
+
+    const btn    = document.getElementById("save-btn");
+    const status = document.getElementById("save-status");
+
+    btn.disabled       = true;
+    status.className   = "save-status";
+    status.textContent = "Saving and extracting knowledge — this takes ~15 seconds...";
+
+    try {
+      const res  = await fetch(`${API}/save`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ url: detectedUrl, category: selectedCategory })
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.detail || "Something went wrong.");
+
+      status.className   = "save-status success";
+      status.textContent = `Saved: "${data.topic}" (${data.level}) — ${data.articles_read} article(s) on this topic`;
+      document.getElementById("url-input").value = "";
+      document.getElementById("category-bar").style.display = "none";
+      detectedUrl = "";
+      selectedCategory = "";
+      loadDashboard();
+
+    } catch (err) {
+      status.className   = "save-status error";
+      status.textContent = err.message;
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = "Detect Article";
+    }
+  }
+
+  async function loadDashboard() {
+    try {
+      const res  = await fetch(`${API}/notes`);
+      const data = await res.json();
+
+      document.getElementById("stat-topics").textContent   = data.stats.total_topics;
+      document.getElementById("stat-articles").textContent = data.stats.total_articles;
+      document.getElementById("stat-concepts").textContent = data.stats.total_concepts;
+
+      renderOverview(data.topics);
+      renderNextSteps(data.topics);
+      renderJourney(data.journey);
+      renderGaps(data.topics);
+
+    } catch (err) {
+      console.error("Could not load dashboard:", err);
+    }
+  }
+
+  function renderOverview(topics) {
+    const el = document.getElementById("overview");
+    const progressMap = { beginner: 25, intermediate: 55, advanced: 85 };
+
+    const cards = topics.length ? topics.map(t => `
+      <div class="topic-card">
+        <div class="topic-row">
+          <span class="topic-name">${t.topic}</span>
+          <span class="level-badge ${t.level}">${t.level}</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill fill-${t.level}" style="width:${progressMap[t.level] || 25}%"></div>
+        </div>
+        <div class="topic-meta">
+          <span>${t.concepts_covered.length} concepts covered</span>
+          <span>${t.articles_read.length} article(s) read</span>
+        </div>
+      </div>
+    `).join("") : `<div class="empty">No topics yet. Paste an article URL above to get started.</div>`;
+
+    el.innerHTML = `<div class="panel-title">All topics</div>` + cards;
+  }
+
+  function renderNextSteps(topics) {
+    const el = document.getElementById("nextsteps");
+
+    const cards = topics.length ? topics.map(t => `
+      <div class="next-card">
+        <div class="next-arrow">→</div>
+        <div>
+          <div class="next-topic">${t.topic}</div>
+          <div class="next-desc">${t.next_to_cover}</div>
+        </div>
+      </div>
+    `).join("") : `<div class="empty">Nothing here yet.</div>`;
+
+    el.innerHTML = `<div class="panel-title">What to study next</div>` + cards;
+  }
+
+  function renderJourney(journey) {
+    const el = document.getElementById("journey");
+
+    const items = journey.length ? journey.map((item, i) => `
+      <div class="journey-item">
+        <div class="dot-col">
+          <div class="j-dot ${item.level}"></div>
+          ${i < journey.length - 1 ? `<div class="j-line"></div>` : ""}
+        </div>
+        <div>
+          <div class="j-date">${item.date}</div>
+          <div class="j-title">
+            ${item.topic}
+            <span class="level-badge ${item.level}" style="font-size:10px">${item.level}</span>
+          </div>
+          <div class="j-sub">${item.url.length > 70 ? item.url.slice(0, 70) + "..." : item.url}</div>
+        </div>
+      </div>
+    `).join("") : `<div class="empty">Your reading history will appear here.</div>`;
+
+    el.innerHTML = `<div class="panel-title">Your reading history</div>` + items;
+  }
+
+  function renderGaps(topics) {
+    const el = document.getElementById("gaps");
+
+    const cards = topics.length ? topics.map(t => `
+      <div class="gap-card">
+        <div class="gap-topic">${t.topic}</div>
+        ${t.concepts_covered.map(c => `
+          <div class="gap-item">
+            <span class="covered">✓</span>
+            <span>${c}</span>
+          </div>
+        `).join("")}
+        <div class="gap-item" style="margin-top:8px">
+          <span class="missing">→</span>
+          <span style="color:#555">Next: ${t.next_to_cover}</span>
+        </div>
+      </div>
+    `).join("") : `<div class="empty">Nothing here yet.</div>`;
+
+    el.innerHTML = `<div class="panel-title">Knowledge gaps</div>` + cards;
+  }
+
+  document.getElementById("url-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") detectArticle();
+  });
+
+  loadDashboard();
+</script>
+</body>
+</html>

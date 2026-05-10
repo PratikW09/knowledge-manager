@@ -1,0 +1,5 @@
+trafilatura
+groq
+python-dotenv
+fastapi
+uvicorn
