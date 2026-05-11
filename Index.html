@@ -469,7 +469,7 @@
     chatHistory.push({ role: "user", content: question });
 
     try {
-      const res  = await fetch("http://localhost:8000/chat", {
+      const res  = await fetch("https://knowledge-manager-r57y.onrender.com/chat", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ question, history: chatHistory.slice(-10) })
