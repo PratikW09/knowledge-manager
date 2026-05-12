@@ -28,7 +28,7 @@ jobs:
         run: pip install -r requirements.txt && pip install pytest httpx
 
       - name: Run tests
-        run: pytest test_main.py -v
+        run: pytest test_api.py -v
 
   deploy:
     name: Deploy to Render
