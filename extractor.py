@@ -245,42 +245,40 @@ Return ONLY valid JSON:
     return json.loads(raw)
 
 
-def save_note(knowledge: dict, url: str) -> dict:
-    os.makedirs(NOTES_DIR, exist_ok=True)
-
+def save_note(knowledge: dict, url: str, supabase_client) -> dict:
     category   = knowledge.get("category", "Other")
-    topic_slug = clean_topic_slug(knowledge["topic"])
-
-    # store by category/topic so notes are organized
-    category_dir = os.path.join(NOTES_DIR, category.lower())
-    os.makedirs(category_dir, exist_ok=True)
-    filepath = os.path.join(category_dir, f"{topic_slug}.json")
-
-    today             = datetime.now().strftime("%Y-%m-%d")
+    today      = datetime.now().strftime("%Y-%m-%d")
     new_article_entry = {
         "url":   url,
         "level": knowledge["level"],
         "date":  today
     }
 
-    if os.path.exists(filepath):
+    # check if topic already exists in DB
+    existing = supabase_client.table("notes")\
+        .select("*")\
+        .eq("topic", knowledge["topic"])\
+        .execute()
+
+    if existing.data:
         print(f"Topic '{knowledge['topic']}' exists. Merging...")
-        with open(filepath, "r", encoding="utf-8") as f:
-            existing_note = json.load(f)
+        existing_note = existing.data[0]
 
         merged = merge_knowledge(existing_note, knowledge)
         existing_note["concepts_covered"] = merged["concepts_covered"]
         existing_note["next_to_cover"]    = merged["next_to_cover"]
         existing_note["level"]            = merged["level"]
 
-        if "articles_read" not in existing_note:
+        # handle old source_urls format
+        if "articles_read" not in existing_note or existing_note["articles_read"] is None:
             old_urls = existing_note.get("source_urls", [])
             existing_note["articles_read"] = [
                 {"url": u, "level": "unknown", "date": "unknown"}
                 for u in old_urls
             ]
-            existing_note.pop("source_urls", None)
-            existing_note.pop("source_url",  None)
+
+        existing_note.pop("source_urls", None)
+        existing_note.pop("source_url",  None)
 
         already_saved = any(
             a["url"] == url for a in existing_note["articles_read"]
@@ -288,17 +286,35 @@ def save_note(knowledge: dict, url: str) -> dict:
         if not already_saved:
             existing_note["articles_read"].append(new_article_entry)
 
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(existing_note, f, indent=2)
+        # update in supabase
+        supabase_client.table("notes")\
+            .update({
+                "concepts_covered": existing_note["concepts_covered"],
+                "next_to_cover":    existing_note["next_to_cover"],
+                "level":            existing_note["level"],
+                "articles_read":    existing_note["articles_read"],
+            })\
+            .eq("topic", knowledge["topic"])\
+            .execute()
 
         return existing_note
 
     else:
+        # new topic — insert fresh
         knowledge["articles_read"] = [new_article_entry]
         knowledge.pop("source_urls", None)
         knowledge.pop("source_url",  None)
 
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(knowledge, f, indent=2)
+        supabase_client.table("notes")\
+            .insert({
+                "topic":            knowledge["topic"],
+                "category":         category,
+                "level":            knowledge["level"],
+                "concepts_covered": knowledge.get("concepts_covered", []),
+                "next_to_cover":    knowledge.get("next_to_cover", ""),
+                "articles_read":    knowledge["articles_read"],
+                "summary":          knowledge.get("summary", ""),
+            })\
+            .execute()
 
         return knowledge

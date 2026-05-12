@@ -3,3 +3,4 @@ groq
 python-dotenv
 fastapi
 uvicorn
+supabase
